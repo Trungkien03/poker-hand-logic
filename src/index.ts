@@ -7,6 +7,9 @@ import {
   getCombinations,
   compareHandValues,
   getRankCountsAndKickers,
+  convertToCard,
+  convertToCardCode,
+  sortCardsByRank,
 } from "./utils";
 export * from "./types";
 
@@ -20,4 +23,7 @@ export {
   getCombinations,
   compareHandValues,
   getRankCountsAndKickers,
+  convertToCard,
+  convertToCardCode,
+  sortCardsByRank,
 };
