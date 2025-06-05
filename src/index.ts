@@ -1,4 +1,4 @@
-import { getBestHandCombination, evaluateWinnerHands } from "./evaluate";
+import { getBestHandCombination, evaluateWinners } from "./evaluate";
 import {
   isFlush,
   isStraight,
@@ -15,7 +15,6 @@ export * from "./types";
 
 export {
   getBestHandCombination,
-  evaluateWinnerHands,
   isFlush,
   isStraight,
   isValidCard,
@@ -26,4 +25,5 @@ export {
   convertToCard,
   convertToCardCode,
   sortCardsByRank,
+  evaluateWinners,
 };

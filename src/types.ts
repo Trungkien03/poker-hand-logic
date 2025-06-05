@@ -1,12 +1,24 @@
-/**
- * Represents a playing card with rank and suit
- * @interface Card
- */
-export interface Card {
-  /** The rank of the card (2-14, where 14 represents Ace) */
-  cardRank: number;
-  /** The suit of the card (1-4, where 1=Hearts, 2=Diamonds, 3=Clubs, 4=Spades) */
-  cardSuit: number;
+export type Suit = 1 | 2 | 3 | 4
+export type Rank =
+	| 14
+	| 2
+	| 3
+	| 4
+	| 5
+	| 6
+	| 7
+	| 8
+	| 9
+	| 10
+	| 11
+	| 12
+	| 13
+	| 999
+	| 9999
+
+export interface CardData {
+	suit: Suit
+	rank: Rank
 }
 
 /**
@@ -14,14 +26,17 @@ export interface Card {
  * @interface HandRankResult
  */
 export interface HandRankResult {
-  /** The title of the hand rank (e.g., "Royal Flush", "Full House") */
-  handRankTitle: string;
-  /** The level of the hand rank (1-10, where 1 is highest) */
-  handRankLevel: number;
-  /** Description of the hand rank */
-  handRankDescription: string;
-  /** The best five cards that make up the hand */
-  bestFiveCards: Card[];
+	handRankTitle: string
+	handRankLevel: number
+	handRankDescription: string
+	bestFiveCards: CardData[]
+}
+
+export interface HandRankEvaluation {
+	handRankTitle: string
+	handRankLevel: number
+	handRankDescription: string
+	rankingCards: CardData[]
 }
 
 /**
@@ -29,15 +44,8 @@ export interface HandRankResult {
  * @interface PlayerHand
  */
 export interface PlayerHand {
-  /** Unique identifier for the player */
-  playerID: string;
-  /** Array of all cards in the player's hand */
-  allCards: Card[];
-}
-
-export interface PlayerHandDto {
-  playerID: string;
-  allCards: number[];
+	playerID: string
+	allCards: CardData[]
 }
 
 /**
@@ -45,31 +53,14 @@ export interface PlayerHandDto {
  * @interface WinnerResult
  */
 export interface WinnerResult {
-  /** Number of winners */
-  winCount: number;
-  /** Array of winning players with their hand details */
-  winners: {
-    playerID: string;
-    bestCombineCards: Card[];
-    allCards: Card[];
-    handRank: {
-      handRankTitle: string;
-      handRankLevel: number;
-    };
-  }[];
-}
-
-/**
- * Represents the result of getting the best hand from a set of cards
- * @interface BestHandResult
- */
-export interface BestHandResult {
-  /** The title of the hand rank */
-  handRank: string;
-  /** The level of the hand rank */
-  handRankLevel: number;
-  /** Array of card codes representing the best five cards */
-  bestFiveCards: number[];
-  /** Description of the hand rank */
-  description: string;
+	winCount: number
+	winners: {
+		playerID: string
+		bestCombineCards: CardData[]
+		allCards: CardData[]
+		handRank: {
+			handRankTitle: string
+			handRankLevel: number
+		}
+	}[]
 }

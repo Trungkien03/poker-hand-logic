@@ -2,19 +2,16 @@
   "name": "poker-hand-evaluator",
   "version": "1.0.0",
   "description": "A TypeScript library for evaluating poker hands",
-  "type": "module",
   "main": "dist/index.js",
-  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
   },
   "scripts": {
-    "build": "tsc --module commonjs && tsc --module esnext --outDir dist",
+    "build": "tsc --module commonjs",
     "test": "jest"
   },
   "devDependencies": {

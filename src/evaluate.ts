@@ -1,14 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
-  BestHandResult,
-  Card,
+  CardData,
+  HandRankEvaluation,
   HandRankResult,
   PlayerHand,
-  PlayerHandDto,
   WinnerResult,
 } from "./types";
 import {
   compareHandValues,
   convertToCard,
+  convertToCardCode,
   getActualRank,
   getCombinations,
   getRankCountsAndKickers,
@@ -27,8 +28,7 @@ import {
  * // Get best hand from 7 cards
  * getBestHandCombination([{cardRank: 1014, cardSuit: 1}, ...])
  */
-export function getBestHandCombination(cards: Card[]): HandRankResult {
-  // 1. validate input cards
+export function getBestHandCombination(cards: CardData[]): HandRankResult {
   if (!cards || !Array.isArray(cards)) {
     throw new Error("Invalid input: cards must be an array");
   }
@@ -61,21 +61,27 @@ export function getBestHandCombination(cards: Card[]): HandRankResult {
     if (!isValidCard(card)) {
       throw new Error(`Invalid card at index ${index}`);
     }
-    const cardKey = `${card.cardRank}-${card.cardSuit}`;
+    const cardKey = `${card.rank}-${card.suit}`;
     if (cardSet.has(cardKey)) {
-      throw new Error(`Duplicate card found ${card.cardRank}`);
+      throw new Error(`Duplicate card found: ${convertToCardCode(card)}`);
     }
     cardSet.add(cardKey);
   });
 
   // For hands with less than 5 cards, evaluate directly
   if (cards.length < 5) {
-    return evaluateHandRank(cards);
+    const evaluation = evaluateHandRank(cards);
+    return {
+      handRankTitle: evaluation.handRankTitle,
+      handRankLevel: evaluation.handRankLevel,
+      handRankDescription: evaluation.handRankDescription,
+      bestFiveCards: evaluation.rankingCards,
+    };
   }
 
   // For 5 or more cards, get all combinations of 5 cards
   const combinations = getCombinations(cards, 5);
-  let bestHand: HandRankResult | null = null;
+  let bestHand: HandRankEvaluation | null = null;
 
   // Evaluate each combination
   for (const combination of combinations) {
@@ -86,8 +92,8 @@ export function getBestHandCombination(cards: Card[]): HandRankResult {
         bestHand = evaluation;
       } else if (evaluation.handRankLevel === bestHand.handRankLevel) {
         // Compare comparison values for same hand rank
-        const currentValue = evaluation.bestFiveCards;
-        const bestValue = bestHand.bestFiveCards;
+        const currentValue = evaluation.rankingCards;
+        const bestValue = bestHand.rankingCards;
 
         if (compareHandValues(currentValue, bestValue) > 0) {
           bestHand = evaluation;
@@ -99,12 +105,16 @@ export function getBestHandCombination(cards: Card[]): HandRankResult {
     }
   }
 
-  // Find the best hand combination
   if (!bestHand) {
     throw new Error("Failed to evaluate any valid hand combination");
   }
 
-  return bestHand;
+  return {
+    handRankTitle: bestHand.handRankTitle,
+    handRankLevel: bestHand.handRankLevel,
+    handRankDescription: bestHand.handRankDescription,
+    bestFiveCards: bestHand.rankingCards,
+  };
 }
 
 /**
@@ -114,7 +124,7 @@ export function getBestHandCombination(cards: Card[]): HandRankResult {
  * @throws {Error} If input is invalid
  * @private
  */
-function evaluateWinners(players: PlayerHand[]): WinnerResult {
+export function evaluateWinners(players: PlayerHand[]): WinnerResult {
   // 1. validate input
   if (!players || !Array.isArray(players) || players.length === 0) {
     throw new Error("Invalid input: players must be a non-empty array");
@@ -145,14 +155,18 @@ function evaluateWinners(players: PlayerHand[]): WinnerResult {
 
   // 4. find winners (players with the same highest hand)
   const highestHand = playerResults[0];
-  const winners = playerResults.filter(
-    (player) =>
-      player.handRank.handRankLevel === highestHand.handRank.handRankLevel &&
-      compareHandValues(
-        player.bestCombineCards,
-        highestHand.bestCombineCards
-      ) === 0
-  );
+  const winners = playerResults.filter((player) => {
+    // Check if hand rank level is the same
+    if (player.handRank.handRankLevel !== highestHand.handRank.handRankLevel) {
+      return false;
+    }
+    // For same hand rank, check if the hands are equal
+    const comparison = compareHandValues(
+      highestHand.bestCombineCards,
+      player.bestCombineCards
+    );
+    return comparison === 0;
+  });
 
   return {
     winCount: winners.length,
@@ -169,52 +183,19 @@ function evaluateWinners(players: PlayerHand[]): WinnerResult {
  * // Evaluates a royal flush
  * getBestHand([1014, 1013, 1012, 1011, 1010])
  */
-function getBestHand(cardCodes: number[]): BestHandResult {
+function getBestHand(cardCodes: number[]): HandRankResult {
   const cards = cardCodes.map((code) => convertToCard(code));
   const result = getBestHandCombination(cards);
 
   return {
-    handRank: result.handRankTitle,
+    handRankTitle: result.handRankTitle,
     handRankLevel: result.handRankLevel,
-    bestFiveCards: result.bestFiveCards.map((card) => card.cardRank),
-    description: result.handRankDescription,
+    handRankDescription: result.handRankDescription,
+    bestFiveCards: result.bestFiveCards,
   };
 }
 
-/**
- * Evaluates winners among multiple players in a poker game
- * @param {PlayerHandDto[]} players - Array of players with their card codes
- * @returns {WinnerResult} The result containing winners and their hand details
- * @throws {Error} If input is invalid
- * @example
- * // Evaluates winners between two players
- * evaluateWinnerHands([
- *   { playerID: "player1", allCards: [1014, 1013, 1012, 1011, 1010] },
- *   { playerID: "player2", allCards: [2014, 2013, 2012, 2011, 2010] }
- * ])
- */
-export function evaluateWinnerHands(players: PlayerHandDto[]): WinnerResult {
-  const playerHands: PlayerHand[] = players.map((player) => ({
-    playerID: player.playerID,
-    allCards: player.allCards.map((code) => convertToCard(code)),
-  }));
-
-  return evaluateWinners(playerHands);
-}
-
-/**
- * Evaluates the rank of a poker hand
- * @param {Card[]} cards - Array of cards to evaluate
- * @returns {HandRankResult} The result containing hand rank information
- * @throws {Error} If input is invalid or cards are invalid
- * @private
- */
-function evaluateHandRank(cards: Card[]): HandRankResult {
-  if (!cards || cards.length < 2) {
-    throw new Error("Invalid input: at least 2 cards required");
-  }
-
-  // Validate all cards
+function evaluateHandRank(cards: CardData[]): HandRankEvaluation {
   cards.forEach((card, index) => {
     if (!isValidCard(card)) {
       throw new Error(`Invalid card at index ${index}`);
@@ -235,7 +216,7 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
         handRankTitle: "Four of a Kind",
         handRankLevel: 3,
         handRankDescription: "Four cards of the same rank.",
-        bestFiveCards: sortedCards,
+        rankingCards: sortedCards,
       };
     }
 
@@ -248,7 +229,7 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
         handRankTitle: "Three of a Kind",
         handRankLevel: 7,
         handRankDescription: "Three cards of the same rank.",
-        bestFiveCards: sortedCards,
+        rankingCards: sortedCards,
       };
     }
 
@@ -263,7 +244,7 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
         handRankTitle: "One Pair",
         handRankLevel: 9,
         handRankDescription: "Two cards of the same rank.",
-        bestFiveCards: sortedCards,
+        rankingCards: sortedCards,
       };
     }
 
@@ -272,7 +253,7 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
       handRankTitle: "High Card",
       handRankLevel: 10,
       handRankDescription: "If no other hand is made, the highest card plays.",
-      bestFiveCards: sortedCards,
+      rankingCards: sortedCards,
     };
   }
 
@@ -284,14 +265,14 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
   if (
     isFlushResult &&
     isStraightResult &&
-    cards.some((card) => getActualRank(card.cardRank) === 14) &&
-    cards.some((card) => getActualRank(card.cardRank) === 13)
+    cards.some((card) => getActualRank(card.rank) === 14) &&
+    cards.some((card) => getActualRank(card.rank) === 13)
   ) {
     return {
       handRankTitle: "Royal Flush",
       handRankLevel: 1,
       handRankDescription: "A, K, Q, J, 10 of the same suit.",
-      bestFiveCards: sortedCards,
+      rankingCards: sortedCards,
     };
   }
 
@@ -301,7 +282,7 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
       handRankTitle: "Straight Flush",
       handRankLevel: 2,
       handRankDescription: "Five cards in rank sequence, all of the same suit",
-      bestFiveCards: sortedCards,
+      rankingCards: sortedCards,
     };
   }
 
@@ -314,7 +295,7 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
       handRankTitle: "Four of a Kind",
       handRankLevel: 3,
       handRankDescription: "Four cards of the same rank.",
-      bestFiveCards: sortedCards,
+      rankingCards: sortedCards,
     };
   }
 
@@ -329,8 +310,8 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
     return {
       handRankTitle: "Full House",
       handRankLevel: 4,
-      bestFiveCards: sortedCards,
       handRankDescription: "Three of a kind and a pair.",
+      rankingCards: sortedCards,
     };
   }
 
@@ -339,8 +320,8 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
     return {
       handRankTitle: "Flush",
       handRankLevel: 5,
-      bestFiveCards: sortedCards,
       handRankDescription: "Five cards of the same suit, not in a sequence.",
+      rankingCards: sortedCards,
     };
   }
 
@@ -349,9 +330,9 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
     return {
       handRankTitle: "Straight",
       handRankLevel: 6,
-      bestFiveCards: sortedCards,
       handRankDescription:
         "Five cards in rank sequence, not all of the same suit.",
+      rankingCards: sortedCards,
     };
   }
 
@@ -360,8 +341,8 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
     return {
       handRankTitle: "Three of a Kind",
       handRankLevel: 7,
-      bestFiveCards: sortedCards,
       handRankDescription: "Three cards of the same rank.",
+      rankingCards: sortedCards,
     };
   }
 
@@ -370,13 +351,12 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
     .filter(([_, count]) => count === 2)
     .map(([rank]) => parseInt(rank))
     .sort((a, b) => b - a);
-
   if (pairs.length === 2) {
     return {
       handRankTitle: "Two Pair",
       handRankLevel: 8,
-      bestFiveCards: sortedCards,
       handRankDescription: "Two pairs of the same rank.",
+      rankingCards: sortedCards,
     };
   }
 
@@ -385,16 +365,15 @@ function evaluateHandRank(cards: Card[]): HandRankResult {
     return {
       handRankTitle: "One Pair",
       handRankLevel: 9,
-      bestFiveCards: sortedCards,
       handRankDescription: "Two cards of the same rank.",
+      rankingCards: sortedCards,
     };
   }
 
-  // High Card (no other hand rank)
   return {
     handRankTitle: "High Card",
     handRankLevel: 10,
-    bestFiveCards: sortedCards,
     handRankDescription: "If no other hand is made, the highest card plays.",
+    rankingCards: sortedCards,
   };
 }
